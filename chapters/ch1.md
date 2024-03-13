@@ -103,10 +103,20 @@ __attribute__ ((aligned (16))) char stack0[4096 * NCPU];
     mul a0, a0, a1
     add sp, sp, a0
 ```
-的意思等同于 `sp += 4096 * (mhartid + 1)`. 也就是说, 对于每个 CPU, 我们让 `sp` 指向他自己的栈顶.
-> `csrr a1, mhartid` 是 RISC-V 特权指令, 它将寄存器 `mhartid` 的值读到 `a1`. 寄存器 `mhartid` 存储了 "这是第几个 CPU 核心?" (从 0 开始编号). 第 n 个核心的栈区是左闭右开的 `4096 * [n, n+1]`.
+的意思等同于 `sp += 4096 * (mhartid + 1)`. 也就是说, 对于每个 CPU, 我们让 `sp` 指向他自己的栈顶. 第 n 个核心的栈区是左闭右开的 `4096 * [n, n+1]`.
+> `csrr` 和 `csrw` 都是 RISC-V 特权指令. 它们能够读/写 CSR (Control and Status Registers). 寄存器 `mhartid` 就是一个 CSR, 它存储了 "这是第几个 CPU 核心?" (从 0 开始编号). 指令 `csrr a1, mhartid` 将寄存器 `mhartid` 的值读到 `a1`. 
+>
 
 * 接下来一行代码调用了 `start()` 函数. 它定义在 `start.c` 中. (注意现在栈已经初始化好了, 因此我们可以放心地使用 `call` 指令了.)
 
 正常来讲, `start()` 函数不会返回, 因此程序永远不会进入 `spin` 标记的死循环中.
+
+
+## RISC-V 特权级别
+
+RISC-V 处理器有三种 **特权级别** (privilege levels): **machine mode** (M 模式), **supervisor mode** (S 模式), **user level** (U 模式). 这三种特权级别是由高到低的. 
+
+当 RISC-V 处理器启动时, **默认处于 M 模式**, 因此可以执行所有 RISC-V 指令. 在上面 `entry.S` 代码中, 有一条指令 `csrr a1, mhartid`, 它读了 CSR 寄存器 `mhartid` 的值. 这个读指令只有在 M 模式下才允许执行. 
+
+> 如果读一下 RISC-V 特权指令集文档, 会发现 M/S 模式下可访问的 CSR 一般由 `m`/`s` 开头.
 
