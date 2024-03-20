@@ -21,15 +21,15 @@ qemu: $K/kernel fs.img
 * `-bios none` 告知模拟器不启用任何 BIOS, 即由用户决定将什么内容加载到内存
 * `-m 128M` 指定了我们给模拟器分配的内存大小 
 
-> `qemu` 文档对于 `-machine` 选项的解释如下: 
+> `qemu` 文档对于 `-machine` 选项的解释如下: <br/>
 >
-> For QEMU's RISC-V system emulation, you must specify which board model you want to use with the `-M` or `--machine` option; there is no default.
+> For QEMU's RISC-V system emulation, you must specify which board model you want to use with the `-M` or `--machine` option; there is no default.<br/>
 >
-> Because RISC-V systems differ so much and in fundamental ways, typically operating system or firmware images intended to run on one machine will not run at all on any other. 
+> Because RISC-V systems differ so much and in fundamental ways, typically operating system or firmware images intended to run on one machine will not run at all on any other. <br/>
 >
-> If you don't care about reproducing the idiosyncrasies of a particular bit of hardware, such as small amount of RAM, no PCI or other hard disk, etc., and just want to run Linux, the best option is to use the `virt` board. This is a platform which doesn't correspond to any real hardware and is designed for use in virtual machines. You'll need to compile Linux with a suitable configuration for running on the `virt` board. `virt` supports PCI, virtio, recent CPUs and large amounts of RAM. It also supports 64-bit CPUs.
+> If you don't care about reproducing the idiosyncrasies of a particular bit of hardware, such as small amount of RAM, no PCI or other hard disk, etc., and just want to run Linux, the best option is to use the `virt` board. This is a platform which doesn't correspond to any real hardware and is designed for use in virtual machines. You'll need to compile Linux with a suitable configuration for running on the `virt` board. `virt` supports PCI, virtio, recent CPUs and large amounts of RAM. It also supports 64-bit CPUs.<br/>
 >
-> https://www.qemu.org/docs/master/system/target-riscv.html
+> [https://www.qemu.org/docs/master/system/target-riscv.html](https://www.qemu.org/docs/master/system/target-riscv.html)
 >
 
 和我们这里比较相关的是 `-kernel $K/kernel` 这一参数, 它指定了模拟器所用的 OS 内核为我们刚编译得到的 `kernel/kernel`.
@@ -51,12 +51,13 @@ ENTRY( _entry )
 > ```
 > gcc -Wl,-T,<linker script> ...
 > ```
-> 可以让链接器 `ld` 按照自定义文件 `<linker script>` 的指示来链接. 在 Linux 上执行 `ld --verbose`, 可以输出 `ld` 默认使用的 linker script (如果用 `ld` 链接时没有 `-T` 选项, 就会按照默认 linker script 进行链接).
+> 可以让链接器 `ld` 按照自定义文件 `<linker script>` 的指示来链接. 在 Linux 上执行 `ld --verbose`, 可以输出 `ld` 默认使用的 linker script (如果用 `ld` 链接时没有 `-T` 选项, 就会按照默认 linker script 进行链接).<br/>
 >
-> 网站 https://mcyoung.xyz/2021/06/01/linker-script/ 是一个很好的 linker script 学习资源. 这里我们只是简要介绍一下: 一个 linker script (.ld 文件) 由一系列 **命令** 组成, 例如上面代码中 
+> 网站 [https://mcyoung.xyz/2021/06/01/linker-script/](https://mcyoung.xyz/2021/06/01/linker-script/) 是一个很好的 linker script 学习资源. 这里我们只是简要介绍一下: 一个 linker script (.ld 文件) 由一系列 **命令** 组成, 例如上面代码中 
 > * `OUTPUT_ARCH(...)` 命令指定了输出可执行文件适配的体系结构 
 > * `ENTRY(...)` 命令指定一个内存地址为可执行文件的入口地址, 也就是 `_entry` 的地址
-> 
+> <br/>
+>
 > 事实上, 我们用来链接 xv6 内核的 linker script (`kernel/kernel.ld`) 是很简单的. 我们会在之后逐步解释这个文件中的内容.
 
 符号 `_entry` 在汇编语言文件 `kernel/entry.S` 中定义. 这个文件很短, 内容如下:
