@@ -2,7 +2,7 @@
 
 ## Getting started
 
-从仓库获取源代码后, 在源代码根目录执行 `make qemu`, 即可启动操作系统. 系统启动后, 会自动运行一个 shell 程序 `sh`. 
+从仓库获取源代码后, 在源代码根目录执行 `make qemu`, 即可启动 xv6 操作系统. 系统启动后, 会自动运行一个 shell 程序 `sh`. 
 
 看看 `Makefile` 中的相关代码: (`Makefile[159:165]`)
 
@@ -37,6 +37,25 @@ qemu: $K/kernel fs.img
 ## Where xv6 starts
 
 当我们启动 `qemu` 后, `qemu` 会把物理内存的起始地址设置为 `0x80000000`; 由于我们给模拟器分配了 128 MB 的内存, 我们拥有的 **物理地址空间** 为 `[0x80000000, 0x88000000)`. 
+
+> 为什么物理内存的起始地址不是 0 呢? 这是因为, 当我们以命令行参数 `-machine virt` 启动 `qemu` 时, `qemu` 会把一些管理 I/O 设备的寄存器 **映射** 到物理地址为 `[0, 0x80000000)` 的区域. 真正的物理内存是从地址 `0x80000000` 开始的.
+>
+> 在 `kernel/memlayout.h` 中, 具体解释了 `qemu -machine virt` 如何进行 I/O 设备的地址映射. 参见下面的代码: (`kernel/memlayout.h[1:13]`)
+> ```c
+> // Physical memory layout
+> 
+> // qemu -machine virt is set up like this,
+> // based on qemu's hw/riscv/virt.c:
+> //
+> // 00001000 -- boot ROM, provided by qemu
+> // 02000000 -- CLINT
+> // 0C000000 -- PLIC
+> // 10000000 -- uart0 
+> // 10001000 -- virtio disk 
+> // 80000000 -- boot ROM jumps here in machine mode
+> //             -kernel loads the kernel here
+> // unused RAM after 80000000.
+> ```
 
 在我们提供的命令行参数下, `qemu` 开始运行之后, 会把可执行文件 `kernel/kernel` 加载到内存地址 `0x80000000` 开始的一片物理内存区域, 然后将 PC 设置为可执行文件的入口地址. `kernel/kernel` 的入口地址是在 linker script 前两行中规定的: (`kernel/kernel.ld[1:2]`)
 
@@ -122,4 +141,126 @@ RISC-V 处理器有三种 **特权级别** (privilege levels): **机器模式** 
 >
 > [https://riscv.org/wp-content/uploads/2017/05/riscv-privileged-v1.10.pdf](https://riscv.org/wp-content/uploads/2017/05/riscv-privileged-v1.10.pdf)
 >
+
+## 如何配环境, 如何 debug 代码?
+
+对于操作系统这样复杂的软件, 仅仅静态地阅读代码不足以掌握系统运行时的全貌. 在读代码遇到困惑时, 一个很好的自救方法就是真的上手去 **运行并调试代码**. 像 `gdb` 这样的调试器, 提供了设置断点、查看寄存器内容等功能, 能给我们理解操作系统的运行提供很大帮助.
+
+### 环境配置
+
+要运行或调试代码, 就不可避免的遇到配环境问题. 这里提供一种亲测有效的配环境方法 (基于 MIT 课程 6.828 官网 [https://pdos.csail.mit.edu/6.828/2023/xv6.html](https://pdos.csail.mit.edu/6.828/2023/xv6.html)), 希望能给读者带来方便.
+
+**第一步:** 去 Docker 官网下载安装 Docker. 如果执行命令
+```
+docker --version
+```
+得到的输出类似于
+```
+Docker version 20.10.23, build 7155243
+```
+那么说明 Docker 已经安装好了.
+
+**第二步:** 获取最新版 Ubuntu 官方镜像. 启动 Docker, 然后执行
+```
+docker pull ubuntu:latest
+```
+如果镜像获取成功, 那么执行
+```
+docker images
+```
+应该会看到镜像列表中有一个条目是 `ubuntu`, 其 tag 为 `latest`.
+
+**第三步:** 启动一个容器. 新建一个文件 `docker-compose.yml`, 然后写入
+```yml
+services:
+  xv6-ubuntu:
+    image: ubuntu:latest
+    container_name: xv6os
+    ports:
+      - 19999:22
+    tty: true
+```
+文件中的 `xv6-ubuntu` 和 `xv6os` 是名字, 可以自己任意取. 另外 `ports` 一栏里的 `19999:22` 将本机的 19999 端口连向容器的 22 端口. 这样我们可以通过 `ssh` 访问容器. 端口号 19999 也可以是任选的无名端口号.
+
+然后执行
+```
+docker-compose up -d
+```
+即可创建容器. 创建完成后, 执行
+```
+docker ps -a
+```
+应该能看到刚刚创建的容器在运行.
+
+**第四步:** 进入容器配置环境. 执行
+```
+docker exec -i xv6os /bin/bash
+```
+在容器中开一个交互式 `bash`. (如果上一步的容器名不是取为 `xv6os`, 则这里也要相应的改变.) 
+
+进入 `bash` 后, 可以先安装 `ssh` 服务:
+```
+apt update
+apt install openssh-client openssh-server
+```
+然后安装必要的工具链:
+```
+apt-get install git build-essential gdb-multiarch qemu-system-misc gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu 
+```
+至此, 我们已经可以克隆 xv6 源代码:
+```
+git clone https://github.com/mit-pdos/xv6-riscv.git
+```
+在目录 `xv6-riscv` 下执行 `make qemu`, 操作系统应该就可以正常启动.
+
+**第五步: (可选)** 启动 `ssh` 服务. 首先还是用 `docker exec` 在容器中开一个 `bash`, 然后执行 `passwd` 设置一个 root 账户密码. 然后在 `/etc/ssh/sshd_config` 的末尾添加两行:
+```
+PermitRootLogin yes
+PasswordAuthentication yes
+```
+(在当前环境下不能使用 `vi` 直接去编辑文件, 需要先 `cat` 出来, 复制到本机的 text editor 编辑好, 再 `echo` 进去.)
+
+添加完成后, 运行
+```
+service ssh restart
+```
+此后在主机中使用 
+```
+ssh root@127.0.0.1 -p 19999
+```
+即可登录容器. 这里 19999 要改成上面设置的端口号.
+
+### 如何调试
+
+为了调试 xv6 代码, 首先要在目录 `xv6-riscv` 下执行
+```
+make qemu-gdb
+```
+事实上, QEMU 提供了 **远程调试** 的功能, 它允许我们在一个进程里运行 QEMU, 另一个进程里运行调试器, 然后通过这两个进程之间的 TCP 连接实现远程调试. 看看 `Makefile` 中关于目标 `qemu-gdb` 的代码: (`Makefile[149:154, 170:172])
+```Makefile
+# try to generate a unique GDB port
+GDBPORT = $(shell expr `id -u` % 5000 + 25000)
+# QEMU's gdb stub command line changed in 0.11
+QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
+	then echo "-gdb tcp::$(GDBPORT)"; \
+	else echo "-s -p $(GDBPORT)"; fi)
+
+qemu-gdb: $K/kernel .gdbinit fs.img
+	@echo "*** Now run 'gdb' in another window." 1>&2
+	$(QEMU) $(QEMUOPTS) -S $(QEMUGDB)
+```
+会发现我们向 `qemu` 提供了两个命令行参数:
+* `-gdb tcp::$(GDBPORT)`: 它的含义是, 使用本地 `gdb` 向 `localhost:<GDBPORT>` 建立一个 TCP 连接, 就可以调试 QEMU 模拟的代码.
+* `-S`: 告诉 QEMU 在我们输入调试指令之前不要启动程序, 这样我们就可以调试操作系统刚启动时执行的那些代码.
+
+运行 `make qemu-gdb` 后, 会把端口号 `GDBPORT` 打印在屏幕上. 我们接着另开一个终端窗口, 在里面运行
+```
+gdb-multiarch kernel/kernel
+```
+启动 `gdb` 调试器. `gdb` 启动后, 我们先执行
+```
+target remote localhost:<GDBPORT>
+```
+使 `gdb` 和 QEMU 建立连接. 这里 `<GDBPORT>` 就是刚才打印出来的端口号. 接着就可以像正常使用 `gdb` 那样设断点、单步调试了.
+
 
