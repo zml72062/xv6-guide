@@ -236,7 +236,7 @@ ssh root@127.0.0.1 -p 19999
 ```
 make qemu-gdb
 ```
-事实上, QEMU 提供了 **远程调试** 的功能, 它允许我们在一个进程里运行 QEMU, 另一个进程里运行调试器, 然后通过这两个进程之间的 TCP 连接实现远程调试. 看看 `Makefile` 中关于目标 `qemu-gdb` 的代码: (`Makefile[149:154, 170:172])
+事实上, QEMU 提供了 **远程调试** 的功能, 它允许我们在一个进程里运行 QEMU, 另一个进程里运行调试器, 然后通过这两个进程之间的 TCP 连接实现远程调试. 看看 `Makefile` 中关于目标 `qemu-gdb` 的代码: (`Makefile[149:154, 170:172]`)
 ```Makefile
 # try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
