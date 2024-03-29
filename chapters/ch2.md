@@ -1,6 +1,6 @@
 # 2. 初始化
 
-在上一章结尾, 我们提到: xv6 内核在执行完 `kernel/entry.S` 中最初的几行代码后, 就跳转到 `kernel/start.c` 中定义的 `start()` 函数执行. 这一章我们就来阅读 `start()` 函数的代码. 这部分代码如下面所示: (`kernal/start.c[19:55]`)
+在上一章结尾, 我们提到: xv6 内核在执行完 `kernel/entry.S` 中最初的几行代码后, 就跳转到 `kernel/start.c` 中定义的 `start()` 函数执行. 这一章我们就来阅读 `start()` 函数的代码. 这部分代码如下面所示: (`kernel/start.c[19:55]`)
 
 ```c
 // entry.S jumps here in machine mode on stack0.
@@ -255,4 +255,4 @@ RISC-V 提供了 `mideleg` 和 `medeleg` 寄存器, 分别代表 interrupt deleg
 * 特权级别被设为 `mstatus` 中 MPP 的值, 也就是 **S 模式**, 而 MPP 设为 `00` (U 模式)
 * PC 被设为 `mepc` 中的值, 也就是 `main()` 函数的地址
 
-从现在开始, 处理器特权级别就由 M 模式变成了 S 模式. 
+从现在开始, 处理器特权级别就由 M 模式变成了 S 模式. 并且处理器接下来将跳转到 `main()` 函数开始执行.
