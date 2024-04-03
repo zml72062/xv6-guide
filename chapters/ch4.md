@@ -1,4 +1,4 @@
-# 0x04. 互斥锁
+# 4. 互斥锁
 
 ## 多处理器并行问题
 
@@ -224,7 +224,34 @@ void push_off(void)
 ```
 这是一条 **fence instruction**. 它要求编译器和 CPU 都 **不要把 fence 一侧的访存指令移到另一侧**. 也就是说, `__sync_synchronize()` 保证: 该指令之后的访存操作, 都必须等到该指令之前的所有访存操作都完成之后, 才会执行. 从而它承诺: 对于共享数据结构的内存访问严格地发生在 CPU 获得锁之后.
 
-> 以下内联汇编
+> 可能有人会疑惑为什么 `__sync_synchronize()` 是必须的. 事实上, 假如编译器生成机器指令的顺序, 以及各个 CPU 执行指令的顺序, 都 **严格遵循 C 语言源文件中语句的顺序** 的话, 那么我们确实不需要 `__sync_synchronize()`. 
+>
+> 然而, 现实中的编译器和 CPU 都有可能交换指令 (尤其是访存指令) 的次序; 此时 `__sync_synchronize()` 就是必不可少的. 作为一个例子, 我们考虑下面这段使用互斥锁的典型代码:
+> ```c
+> // ...
+> // a.data: shared data structure
+> // a.lock: a spinlock to protect a.data
+> acquire(&a.lock);   // WITHOUT __sync_synchronize() !
+> access(&a.data);    // do something with a.data ...
+> // ...
+> ```
+> 在这里, 我们用互斥锁 `a.lock` 保护共享数据 `a.data`. 如果 `acquire()` 函数中没有 `__sync_synchronize()` 语句, 那么:
+> * 编译器可能会发现 `acquire()` 与 `access()` 对内存的访问是相互独立的 (即, 它们访问的内存区域是不交的). 于是编译器可能把访问 `a.data` 的指令移到访问 `a.lock` 的指令之前.
+> * 即使编译器没有改变访存指令的顺序, 一个支持乱序执行的 CPU 也有可能先执行对 `a.data` 的访问, 后执行对 `a.lock` 的访问, 因为这两条指令之间没有依赖.
+>
+> 但是, 互斥锁的正确实现恰恰依赖于 **正确的访存顺序**: 对 `a.lock` 的访问必须严格先于对 `a.data` 的访问. 编译器和 CPU 不可能意识到这一点, 因为它们对于 "代码被多个处理器并行执行" 的事实是完全无知的. 因此, 程序员必须显式地用 `__sync_synchronize()` 保证访存次序:
+> ```c
+> // ...
+> // a.data: shared data structure
+> // a.lock: a spinlock to protect a.data
+> acquire(&a.lock);   // WITHOUT __sync_synchronize() !
+> __sync_synchronize();
+> access(&a.data);    // do something with a.data ...
+> // ...
+> ```
+
+
+> 顺便提一句, 以下内联汇编
 > ```c
 > asm volatile("" ::: "memory");
 > ```

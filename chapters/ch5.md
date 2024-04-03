@@ -1,4 +1,4 @@
-# 0x05. Hello, World!
+# 5. Hello, World!
 
 在本章中, 我们正式开始研究 `main()` 函数的代码: (`kernel/main.c[10:45]`)
 ```c
