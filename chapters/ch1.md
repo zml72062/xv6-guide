@@ -194,7 +194,7 @@ docker ps -a
 
 **第四步:** 进入容器配置环境. 执行
 ```
-docker exec -i xv6os /bin/bash
+docker exec -it xv6os /bin/bash
 ```
 在容器中开一个交互式 `bash`. (如果上一步的容器名不是取为 `xv6os`, 则这里也要相应的改变.) 
 
@@ -213,7 +213,7 @@ git clone https://github.com/mit-pdos/xv6-riscv.git
 ```
 在目录 `xv6-riscv` 下执行 `make qemu`, 操作系统应该就可以正常启动.
 
-**第五步: (可选)** 启动 `ssh` 服务. 首先还是用 `docker exec` 在容器中开一个 `bash`, 然后执行 `passwd` 设置一个 root 账户密码. 然后在 `/etc/ssh/sshd_config` 的末尾添加两行:
+**第五步: (可选)** 启动 `ssh` 服务. 首先还是用 `docker exec -it` 在容器中开一个 `bash`, 然后执行 `passwd` 设置一个 root 账户密码. 然后在 `/etc/ssh/sshd_config` 的末尾添加两行:
 ```
 PermitRootLogin yes
 PasswordAuthentication yes

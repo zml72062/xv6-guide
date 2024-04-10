@@ -2,7 +2,7 @@
 
 在上一章我们读完了 `start()` 函数的代码. 这个函数完成了 M 模式下一切必要的准备工作, 然后回到 S 模式. 不过, 我们仍然遗留了一部分的代码到这一章, 也就是函数 `timerinit()` 的代码.
 
-## 初识 interrupt handling
+## 初识设备驱动程序
 
 `timerinit()` 函数完成了 **时钟中断处理** 的初始化工作. 这个函数定义在 `kernel/start.c[57:89]`:
 ```c
@@ -40,14 +40,19 @@ timerinit()
   w_mie(r_mie() | MIE_MTIE);
 }
 ```
-我们下面就来读这个函数的代码. 在命令行参数 `-machine virt` 下, `qemu` 把控制时钟设备 (core local interruptor, CLINT) 的寄存器映射到了从物理地址 `0x2000000` 开始的一片内存区域 (见第 1 章的物理内存布局图). 为了方便访问这些寄存器, 在 `kernel/memlayout.h[28:31]` 中定义了下列宏:
+`timerinit()` 函数是我们接触的第一个 **设备驱动程序**. 总的来说, 设备驱动程序的职责是:
+* 设置设备的有关寄存器, 完成设备硬件状态的初始化
+* 提供操纵设备的软件接口
+* 在底层处理设备中断
+
+时钟设备为上层提供的接口是很简单的: 对于每个 CPU 核心, 它提供 **一对寄存器 `mtime` 和 `mtimecmp`**. 在命令行参数 `-machine virt` 下, `qemu` 把控制时钟设备 (core local interruptor, CLINT) 的寄存器映射到了从物理地址 `0x2000000` 开始的一片内存区域 (见第 1 章的物理内存布局图). 为了方便访问这些寄存器, 在 `kernel/memlayout.h[28:31]` 中定义了下列宏:
 ```c
 // core local interruptor (CLINT), which contains the timer.
 #define CLINT 0x2000000L
 #define CLINT_MTIMECMP(hartid) (CLINT + 0x4000 + 8*(hartid))
 #define CLINT_MTIME (CLINT + 0xBFF8) // cycles since boot.
 ```
-具体来讲, 位于地址 `CLINT_MTIME` 的 8 字节整数中实时存储了自机器启动以来经历的周期数; 对于核心号为 `i` 的处理器, 当 
+寄存器 `mtime` 和 `mtimecmp` 分别被内存映射到地址 `CLINT_MTIME` 和 `CLINT_MTIMECMP(hartid)` (每个 CPU 核心有一个自己的 `mtimecmp` 寄存器). 具体来讲, 位于地址 `CLINT_MTIME` 的 8 字节整数中实时存储了自机器启动以来经历的周期数; 对于核心号为 `i` 的处理器, 当 
 ```c
 *(uint64*)CLINT_MTIME > *(uint64*)CLINT_MTIMECMP(i)
 ```
