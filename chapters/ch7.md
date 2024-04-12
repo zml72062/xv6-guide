@@ -266,11 +266,11 @@ kvmmake(void)
 ```
 `kvmmake()` 函数首先调用 `kalloc()` 分配一个物理页作为 **一级页表页**, 记为 `kpgtbl`. 然后, 它反复调用 `kvmmap` 来进行虚拟内存到物理内存的映射:
 * 将虚拟地址范围 `[0, PHYSTOP)` **直接映射** 到物理内存的相同地址范围. 其中
-  + 外部设备 (UART, VIRTIO, PLIC) 寄存器的内存映像被设置为 **具有读、写权限, 但无执行权限**
-  + 内核代码段 (地址范围 `[KERNBASE, etext)`) 被设置为 **具有读、执行权限, 但无写权限**
-  + 内核数据段以及内核以外的内存 (地址范围 `[etext, PHYSTOP)`) 被设置为 **具有读、写权限, 但无执行权限**
+  + 外部设备 (UART, VIRTIO, PLIC) 寄存器的内存映像被设置为 **可读、可写但不可执行**
+  + 内核代码段 (地址范围 `[KERNBASE, etext)`) 被设置为 **可读、可执行但不可写**
+  + 内核数据段以及内核以外的内存 (地址范围 `[etext, PHYSTOP)`) 被设置为 **可读、可写但不可执行**
   > 常量 `KERNBASE` 等于 `0x80000000`. 符号 `etext` 是在 linker script 中定义的 (`kernel/kernel.ld[19]`). 下面会看到, 它代表内核代码段的结束.
-* 将虚拟地址 `TRAMPOLINE` 出发的一页映射到符号 `trampoline` 所在的物理页.
+* 将虚拟地址 `TRAMPOLINE` 出发的一页映射到符号 `trampoline` 所在的物理页. 该页是可读、可执行但不可写的.
   + 常量 `TRAMPOLINE` 等于 `MAXVA - PGSIZE`. 也就是说, 它指向 xv6 虚拟地址空间最顶部的一页.
   + 符号 `trampoline` 定义在 `trampoline.S` 中:
     ```asm
@@ -341,13 +341,12 @@ KSTACK(i) = TRAMPOLINE - (i + 1) * 2*PGSIZE;
 ```
 映射到该物理页的基址. 这样, 在内核的虚拟地址空间中, 每个进程的内核栈各占一个虚拟页, 且两两之间相隔一个无效的虚拟页. 所有这些内核栈都位于 trampoline 页的下方, 且按照进程号 0, 1, 2, ... 在虚拟地址空间中由高地址向低地址排列.
 
-综上所述, `kvmmake()` 函数完成了内核态虚拟地址空间的定义, 并且为所有有效的虚拟页建立了页表项. 现在我们可以回到 `main()` 函数,
+综上所述, `kvmmake()` 函数完成了内核态虚拟地址空间的定义, 并且为所有有效的虚拟页建立了页表项. 现在我们已经理解 `main()` 函数中的下列代码
 
 ```c
     kvminit();       // create kernel page table
 ```
-前面已经提到, `kvminit()` 调用了 `kvmmake()`, 并把一级页表基址存入 `kernel_pagetable`.
-
+的含义: `kvminit()` 调用了 `kvmmake()`, 并把一级页表基址存入 `kernel_pagetable`. `main()` 函数的下一行代码是
 ```c
     kvminithart();   // turn on paging
 ```
