@@ -109,8 +109,9 @@ pagetable_t proc_pagetable(struct proc *p)
 >
 > 事实上, 之后会看到: trampoline 页中存放了 xv6 在用户态和内核态之间切换的关键代码.
 >
+  可能有些奇怪, `TRAMPOLINE` 指向的虚拟页位于 **用户进程虚拟地址空间** 中, 但它却被映射到 **内核** 代码段中的一个物理页 (trampoline 页)! 很明显, 我们不希望用户进程拥有对 `TRAMPOLINE` 虚拟页的访问权限. 为此, 我们把这一页的权限位设置成 `R=1`, `X=1`, **但 `U=0`**.
 
-* 最后, 将虚拟地址空间中 `TRAPFRAME` 指向的一页映射到 `proc` 结构体中的 `trapframe` 字段所指物理页:
+* 最后, 将虚拟地址空间中 `TRAPFRAME` 指向的一页映射到进程 `p` 的 `proc` 结构体中的 `trapframe` 字段所指物理页:
   ```c
   // TRAPFRAME = TRAMPOLINE - PGSIZE;
   // "p->trapframe" has been allocated in physical memory
@@ -121,7 +122,7 @@ pagetable_t proc_pagetable(struct proc *p)
     return 0;
   }
   ```
-  虚拟地址 `TRAPFRAME` 正好位于 `TRAMPOLINE` 下方一页的位置.
+  虚拟地址 `TRAPFRAME` 正好位于 `TRAMPOLINE` 下方一页的位置. 由于 `TRAPFRAME` 对应的物理页也属于内核, 我们同样将 `U` 权限位设置成 0.
 
 > xv6 内核为每个存活进程都分配一个物理页, 称为 **陷入帧** (trap frame). 在进程的 `proc` 结构体中, `trapframe` 字段就指向陷入帧. 陷入帧的内容定义为下列结构体: (`kernel/proc.h[31:80]`)
 > ```c
@@ -170,11 +171,162 @@ pagetable_t proc_pagetable(struct proc *p)
 
 ![xv6 用户进程虚拟地址空间](/chapters/ch8-figs/useraddr.png "xv6 用户进程虚拟地址空间")
 
-上面的 `proc_pagetable()` 函数实际上只把 trampoline 和 trapframe 这两个虚拟页映射到了物理页; 进程虚拟地址空间的其他部分 (heap, stack, data, text 等等) 暂时都是无效的.
+`proc_pagetable()` 函数实际上只把 trampoline 和 trapframe 这两个虚拟页映射到了物理页; 进程虚拟地址空间的其他部分 (heap, stack, data, text 等等) 暂时都是无效的.
 
-要指出一点: 虽然 trampoline 页和 trapframe 页是用户态虚拟地址空间的一部分, 但它们对应的物理页却 **在内核中**. 从而我们不希望用户进程访问这两个虚拟页. 好在 `proc_pagetable()` 函数充分考虑到了这个担忧——不妨查看一下 trampoline 页和 trapframe 页的权限: trampoline 页是 `PTE_R | PTE_X`, 而 trapframe 页是 `PTE_R | PTE_W`. **这两页的页表项都没有把 `U` 位设为 1.** 
-
-> 除去进程虚拟地址空间顶部的两页之外, 剩余的虚拟页都将是用户可访问的.
+正如上面提到的那样, 虽然 trampoline 页和 trapframe 页是用户态虚拟地址空间的一部分, 但它们对应的物理页 **在内核中**; 用户程序不可访问这两个虚拟页. 除去这两页之外, 进程虚拟地址空间的其他部分都是用户可访问的.
 
 ### `proc_freepagetable()` 函数
 
+`proc_freepagetable()` 函数可以回收一个进程的页表. 这包括两部分工作:
+* 回收进程自身所使用的全部物理内存
+* 回收进程页表占据的物理内存
+
+`proc_freepagetable()` 的代码参见 `kernel/proc.c[208:216]`:
+```c
+// Free a process's page table, and free the
+// physical memory it refers to.
+void proc_freepagetable(pagetable_t pagetable, uint64 sz)
+{
+  uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+  uvmunmap(pagetable, TRAPFRAME, 1, 0);
+  uvmfree(pagetable, sz);
+}
+```
+这里, 参数 `pagetable` 表示 **进程一级页表的物理基址**, `sz` 表示 **进程自身占用的物理内存大小**.
+
+在 `proc_freepagetable()` 中涉及两个辅助函数: `uvmunmap()` 与 `uvmfree()`. 我们首先来看 `uvmunmap()`: (`kernel/vm.c[167:192]`)
+```c
+void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
+{
+  uint64 a;
+  pte_t *pte;
+
+  if((va % PGSIZE) != 0)
+    panic("uvmunmap: not aligned");
+
+  for(a = va; a < va + npages*PGSIZE; a += PGSIZE){
+    if((pte = walk(pagetable, a, 0)) == 0)
+      panic("uvmunmap: walk");
+    if((*pte & PTE_V) == 0)
+      panic("uvmunmap: not mapped");
+    if(PTE_FLAGS(*pte) == PTE_V)
+      panic("uvmunmap: not a leaf");
+    if(do_free){
+      uint64 pa = PTE2PA(*pte);
+      kfree((void*)pa);
+    }
+    *pte = 0;
+  }
+}
+```
+这个函数把 (页对齐的) 虚拟地址 `va` 出发的 `npages` 个虚拟页设为无效的, 并且当 `do_free == 1` 时, 还会回收相应的物理页. 具体来说, 对于虚拟地址范围 `[va, va + npages * PGSIZE)` 中的每个虚拟页 `a`,
+* 找到该虚拟页对应的三级页表条目, 设为 `pte`
+  ```c
+  if((pte = walk(pagetable, a, 0)) == 0)
+    panic("uvmunmap: walk");
+  ```
+* 确认该页表条目的有效位 `V` 为 1
+  ```c
+  if((*pte & PTE_V) == 0)
+    panic("uvmunmap: not mapped");
+  ```
+* 确认该页表条目的确对应一个叶子页 (权限位 `R`, `W`, `X` 不全为零)
+  ```c
+  // PTE_FLAGS(*pte) = (*pte) & 0x3FF;
+  // selects last 10 bits (permission bits) of (*pte).
+  if(PTE_FLAGS(*pte) == PTE_V)
+    panic("uvmunmap: not a leaf");
+  ```
+* 如果参数 `do_free == 1`, 就读出 `pte` 中的物理页号, 把相应的物理页回收
+  ```c
+  if(do_free) {
+    uint64 pa = PTE2PA(*pte);
+    kfree((void*)pa);
+  }
+  ```
+* 重置 `pte` 的内容为全零
+  ```c
+  *pte = 0;
+  ```
+
+从而, `proc_freetable()` 的前两行代码
+```c
+  uvmunmap(pagetable, TRAMPOLINE, 1, 0);
+  uvmunmap(pagetable, TRAPFRAME, 1, 0);
+```
+取消了用户进程页表中 `TRAMPOLINE` 和 `TRAPFRAME` 页到物理内存的映射. 
+
+> `proc_freetable()` 并不回收 `TRAMPOLINE` 和 `TRAPFRAME` 页对应的物理内存 (即上述调用中 `do_free == 0`). 理由是:
+> * trampoline 页对应的物理页位于内核代码段, 根本不能用 `kfree()` 回收 
+> * 对于 trapframe 页, 相应的物理页会在 `freeproc()` 函数 (`kernel/proc.c[152:172]`) 中回收, 而不是在这里回收
+
+再来看 `uvmfree()` 函数. 它定义在 `kernel/vm.c[289:297]`:
+```c
+void uvmfree(pagetable_t pagetable, uint64 sz)
+{
+  if(sz > 0)
+    uvmunmap(pagetable, 0, PGROUNDUP(sz)/PGSIZE, 1);
+  freewalk(pagetable);
+}
+```
+它首先调用 `uvmunmap()`, 将进程虚拟地址空间中 **零地址出发的 `PGROUNDUP(sz)/PGSIZE` 页** 取消映射, 并 **回收相应的物理页** (`do_free == 1`). 
+
+> 前面已经提到, 进程虚拟地址空间中除最顶部的两页 (trampoline 和 trapframe) 外, 其余部分都是用户进程可访问的. 也就是说, 用户进程自身占用的内存对应于虚拟地址空间中零地址出发的若干页. 上述操作把这些内存全部清除.
+
+接下来, `uvmfree()` 调用 `freewalk()`, 将各级页表占用的物理内存回收. `freewalk()` 函数定义在 `kernel/vm.c[269:287]`:
+```c
+void freewalk(pagetable_t pagetable)
+{
+  // there are 2^9 = 512 PTEs in a page table.
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if((pte & PTE_V) && (pte & (PTE_R|PTE_W|PTE_X)) == 0){
+      // this PTE points to a lower-level page table.
+      uint64 child = PTE2PA(pte);
+      freewalk((pagetable_t)child);
+      pagetable[i] = 0;
+    } else if(pte & PTE_V){
+      panic("freewalk: leaf");
+    }
+  }
+  kfree((void*)pagetable);
+}
+```
+这个函数遍历页表 `pagetable` 中的 512 个页表项, 并检查每一个页表项 `pte` 是否指向下一级页表:
+```c
+(pte & PTE_V) != 0 && (pte & (PTE_R | PTE_W | PTE_X)) == 0
+```
+如果是的话, 就递归地对下一级页表调用 `freewalk()`:
+```c
+  uint64 child = PTE2PA(pte);
+  freewalk((pagetable_t)child);
+  pagetable[i] = 0;
+```
+直到全部 512 个页表项都被清除之后, 回收 `pagetable` 所使用的页表页:
+```c
+  kfree((void*)pagetable);
+```
+> 在调用 `freewalk()` 之前, 需确认 **已取消页表中所有叶子页到物理内存的映射**. 换言之, 页表中的每个条目要么是无效的, 要么须指向一个页表页. 如果 `freewalk()` 发现了指向叶子页的有效条目, 那么内核就会 panic.
+
+这样, `proc_freetable()` 的第三行调用
+```c
+  uvmfree(pagetable, sz);
+```
+把进程自身占用的物理内存 (大小为 `sz` 字节) 以及进程的各级页表占用的物理内存全部回收.
+
+## 进程虚拟内存工具函数
+
+在 `kernel/vm.c` 中, 还定义了许多用于操纵进程虚拟内存的工具函数 (utility functions). 内核会调用这些函数实现一些常用的功能. 这些工具函数的源代码比较简单, 而且挺无聊的, 所以我们只列出它们的名称, 并描述它们的功能.
+
+| 名称 | 源代码位置 | 功能 |
+|:---:|:---:|:---|
+|`uvmfirst()` | `vm.c[207:221]`| 新建一个物理页, 将内核地址空间中 `[src, src + sz)` 的范围拷贝到该物理页中 (`sz` 大小不超过一页), 然后把用户进程虚拟地址空间中地址最低的一页 (即零地址出发的一页) 映射到该物理页. |
+|`uvmalloc()`| `vm.c[223:249]` | 分配新的物理页并新建地址映射, 使用户进程占用的虚拟地址范围由 `[0, oldsz)` 扩大到 `[0, newsz)`. 新建的每一个虚拟页都有权限位 `PTE_R \| PTE_U \| xperm`, 其中 `xperm` 由参数指定.|
+|`uvmdealloc()` | `vm.c[251:267]` | 回收一些物理页, 使用户进程占用的虚拟地址范围由 `[0, oldsz)` 缩小到 `[0, newsz)`.|
+|`uvmcopy()` | `vm.c[299:333]` | 将旧进程的页表 `old` 原样复制到新进程的页表 `new`. 页表 `new` 中的第 `i` 个虚拟页对应的物理页, 是页表 `old` 中的第 `i` 个虚拟页所对应物理页的副本. 这个函数的语义与 Unix 系统中的 `fork()` 相同 (无 copy-on-write).|
+| `uvmclear()` |`vm.c[335:346]` | 将虚拟地址 `va` 所在的虚拟页设为用户不可访问 (`U=0`). |
+| `copyout()` | `vm.c[348:371]` | 将内核地址空间中 `[src, src + len)` 的范围拷贝到进程虚拟地址空间中 `dstva` 出发的内存区域. 要求虚拟地址范围 `[dstva, dstva + len)` 经过的每一个虚拟页都是有效的 (`V=1`)、用户可访问的 (`U=1`). |
+| `copyin()` | `vm.c[373:396]` | 将进程虚拟地址空间中 `[srcva, srcva + len)` 的范围拷贝到内核地址空间中 `src` 出发的区域. 要求虚拟地址范围 `[srcva, srcva + len)` 经过的每一个虚拟页都是有效的 (`V=1`)、用户可访问的 (`U=1`). |
+| `copyinstr()` | `vm.c[398:439]`| 同 `copyin()`, 只不过在拷贝过程中一旦检测到零字节, 就停止拷贝. 这适用于拷贝字符串. |
+
+至此, 我们成功为 **xv6 内核** (上一章) 和 **用户进程** (本章) 完成了虚拟内存的配置.
