@@ -124,7 +124,7 @@ pagetable_t proc_pagetable(struct proc *p)
   ```
   虚拟地址 `TRAPFRAME` 正好位于 `TRAMPOLINE` 下方一页的位置. 由于 `TRAPFRAME` 对应的物理页也属于内核, 我们同样将 `U` 权限位设置成 0.
 
-> xv6 内核为每个存活进程都分配一个物理页, 称为 **陷入帧** (trap frame). 在进程的 `proc` 结构体中, `trapframe` 字段就指向陷入帧. 陷入帧的内容定义为下列结构体: (`kernel/proc.h[31:80]`)
+> xv6 内核会为每个刚创建的进程都分配一个物理页, 称为 **陷入帧** (trap frame). 假如进程的 `proc` 结构体为 `p`, 则 `p.trapframe` 字段就是指向陷入帧的指针. 陷入帧的内容定义为下列结构体: (`kernel/proc.h[31:80]`)
 > ```c
 > struct trapframe {
 >   /*   0 */ uint64 kernel_satp;   // kernel page table
@@ -257,8 +257,8 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
 取消了用户进程页表中 `TRAMPOLINE` 和 `TRAPFRAME` 页到物理内存的映射. 
 
 > `proc_freetable()` 并不回收 `TRAMPOLINE` 和 `TRAPFRAME` 页对应的物理内存 (即上述调用中 `do_free == 0`). 理由是:
-> * trampoline 页对应的物理页位于内核代码段, 根本不能用 `kfree()` 回收 
-> * 对于 trapframe 页, 相应的物理页会在 `freeproc()` 函数 (`kernel/proc.c[152:172]`) 中回收, 而不是在这里回收
+> * `TRAMPOLINE` 页对应的物理页位于内核代码段, 应当常驻内存, 且它根本不能用 `kfree()` 回收 
+> * `TRAPFRAME` 页在物理内存中被映射到进程的陷入帧; 当进程消亡时, 陷入帧会在 `freeproc()` 函数 (`kernel/proc.c[152:172]`) 中回收, 而不是在这里回收
 
 再来看 `uvmfree()` 函数. 它定义在 `kernel/vm.c[289:297]`:
 ```c
@@ -330,3 +330,7 @@ void freewalk(pagetable_t pagetable)
 | `copyinstr()` | `vm.c[398:439]`| 同 `copyin()`, 只不过在拷贝过程中一旦检测到零字节, 就停止拷贝. 这适用于拷贝字符串. |
 
 至此, 我们成功为 **xv6 内核** (上一章) 和 **用户进程** (本章) 完成了虚拟内存的配置.
+
+> 本章中介绍的所有函数, 包括 `uvmcreate()`, `uvmunmap()`, `uvmfree()` 以及上面所有工具函数, 都是关于多处理器并发访问安全的. 关键原因在于, 用户进程使用的全部物理页 (包括页表页) 都是用 `kalloc()` 分配出来的, 从而 (由 `kalloc()` 的实现保证) 这些页是 **私有地** 属于单一处理器核心的.
+>
+> 这里的情况与内核页表不同: 内核页表是被多个处理器 **共享** 的.
