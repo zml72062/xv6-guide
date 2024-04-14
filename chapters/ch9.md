@@ -46,8 +46,7 @@ struct proc proc[NPROC];    // NPROC = 64;
 `procinit()` 函数定义在 `kernel/proc.c[46:59]`:
 ```c
 // initialize the proc table.
-void
-procinit(void)
+void procinit(void)
 {
   struct proc *p;
   
@@ -136,13 +135,13 @@ found:
         ```c
         int allocpid()
         {
-        int pid;
-        
-        acquire(&pid_lock);
-        pid = nextpid;
-        nextpid = nextpid + 1;
-        release(&pid_lock);
-        return pid;
+          int pid;
+          
+          acquire(&pid_lock);
+          pid = nextpid;
+          nextpid = nextpid + 1;
+          release(&pid_lock);
+          return pid;
         }
         ```
         它取出全局变量 `nextpid` 的值作为 PID, 并给 `nextpid` 加 1.
@@ -153,18 +152,18 @@ found:
     + 为 `p` 分配一个物理页, 作为陷入帧:
         ```c
         if((p->trapframe = (struct trapframe *)kalloc()) == 0){
-        freeproc(p);
-        release(&p->lock);
-        return 0;
+          freeproc(p);
+          release(&p->lock);
+          return 0;
         }
         ```
     + 为 `p` 构建页表:
         ```c
         p->pagetable = proc_pagetable(p);
         if(p->pagetable == 0){
-            freeproc(p);
-            release(&p->lock);
-            return 0;
+          freeproc(p);
+          release(&p->lock);
+          return 0;
         }
         ```
         我们在上一章已经详述过这一步的细节. 特别地, 虚拟地址 `TRAPFRAME` 出发的虚拟页会被映射到上一步刚刚创建的 **陷入帧**.
@@ -201,15 +200,15 @@ found:
         也就是说, 它把进程 `p` 的上下文结构体中的 `ra` 字段设为 `forkret()` 函数的地址 (该函数定义在 `kernel/proc.c[512:531]`), 把 `sp` 字段设为 `p` 的内核栈栈顶, 其余字段全设为零.
 
         > 读者可能会注意到 `context` 结构体是 `trapframe` 结构体的真子集. 而且, 这两种数据结构具有相近的含义——它们都 (在某种意义上) 囊括了进程的 **寄存器上下文**. 不过, xv6 给这两种数据结构赋予了不同的功能:
-        > * `trapframe` 结构体用于 **用户态和内核态之间的切换**. 从用户态切换到内核态时, 用户进程 `p` 所使用的全部寄存器会被保存到 `p.trapframe` 指向的页中; 返回用户态时, 又会从 `p.trapframe` 处恢复寄存器的值.
-        > * `context` 结构体用于 **用户进程和调度器之间的切换**. 当进程 `p` 出于某些原因 (例如调用 `yield()`, `sleep()`, `exit()`) 决定放弃 CPU 时, 会调用 `sched()` 函数将自己的 **`ra`, `sp` 和 callee-saved 寄存器** 放到 `p.context` 中, 然后从调度器的 `context` 结构体恢复出相应上下文. 接着, 调度器选择下一个要运行的进程, 再次把 `ra`, `sp` 和 callee-saved 寄存器更换为下一个进程的相应值, 以实现进程切换.
+        > * `trapframe` 结构体用于中断引起的 **陷入** 及 **陷入返回**. 从用户态陷入内核态时, 用户进程 `p` 所使用的全部寄存器会被保存到 `p.trapframe` 指向的页中; 返回用户态时, 又会从 `p.trapframe` 处恢复寄存器的值.
+        > * `context` 结构体用于 **用户进程和调度器之间的切换**. 当进程 `p` 出于某些原因 (例如调用 `yield()`, `sleep()`, `exit()`) 决定放弃 CPU 时, 会调用 `sched()` 函数将自己的 **`ra`, `sp` 和 callee-saved 寄存器** 放到 `p.context` 中, 然后从调度器的 `context` 结构体恢复出相应上下文. 接着, 调度器开始执行. 它选择下一个要运行的进程, 再次把 `ra`, `sp` 和 callee-saved 寄存器更换为下一个进程的相应值, 以实现进程切换.
         >
         > 和 `trapframe` 相比, 可以认为 `context` 是相对 "轻量级" 的上下文.
 * 如果进程创建成功, 就返回其 `proc` 结构体的首地址, 并且 **不释放 `p->lock`**; 否则, 返回 0 并释放 `p->lock`.
 
 从 `allocproc()` 创建的进程是 "干净的", 因为它的虚拟地址空间中用户可访问的部分是空的; 此外, 还没有为它进行文件系统的初始化工作. 直到我们把用户编写的程序 **加载** 到进程的地址空间中 (这意味着分配一些物理页, 并把程序中的代码、数据复制到物理页中), 进程的状态才会变成 **可运行的** (`RUNNABLE`, 而不仅仅是 `USED`).
 
-与创建进程相对应的操作是 **回收进程**. xv6 使用函数 `freeproc()` 回收一个进程: (`kernel/proc.c[152:172])
+与创建进程相对应的操作是 **回收进程**. xv6 使用函数 `freeproc()` 回收一个进程: (`kernel/proc.c[152:172]`)
 ```c
 static void freeproc(struct proc *p)
 {
@@ -295,7 +294,7 @@ void userinit(void)
     p->trapframe->epc = 0;      // user program counter
     p->trapframe->sp = PGSIZE;  // user stack pointer
     ```
-    我们在之后会看到, 当 xv6 从内核态回到用户态之前, 会把 `sepc` 寄存器设置为 `p->trapframe->epc` 保存的值, 把栈指针 `sp` 设置为 `p->trapframe->sp` 保存的值. (其中 `p` 是返回后将要运行的进程.)
+    我们在之后会看到, 当 xv6 从内核态回到用户态之前, 会把 `sepc` 寄存器设置为 `p->trapframe->epc` 保存的值, 把栈指针 `sp` 设置为 `p->trapframe->sp` 保存的值. (其中 `p` 是返回用户态后将要运行的进程.)
 * 将 `initproc` 的进程名设置为 `initcode`.
     ```c
     safestrcpy(p->name, "initcode", sizeof(p->name));
