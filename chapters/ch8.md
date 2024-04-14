@@ -230,7 +230,7 @@ void uvmunmap(pagetable_t pagetable, uint64 va, uint64 npages, int do_free)
   if((*pte & PTE_V) == 0)
     panic("uvmunmap: not mapped");
   ```
-* 确认该页表条目的确对应一个叶子页 (权限位 `R`, `W`, `X` 不全为零)
+* 确认该页表条目对应一个叶子页 (权限位 `R`, `W`, `X` 不全为零)
   ```c
   // PTE_FLAGS(*pte) = (*pte) & 0x3FF;
   // selects last 10 bits (permission bits) of (*pte).
@@ -323,10 +323,10 @@ void freewalk(pagetable_t pagetable)
 |`uvmfirst()` | `vm.c[207:221]`| 新建一个物理页, 将内核地址空间中 `[src, src + sz)` 的范围拷贝到该物理页中 (`sz` 大小不超过一页), 然后把用户进程虚拟地址空间中地址最低的一页 (即零地址出发的一页) 映射到该物理页. |
 |`uvmalloc()`| `vm.c[223:249]` | 分配新的物理页并新建地址映射, 使用户进程占用的虚拟地址范围由 `[0, oldsz)` 扩大到 `[0, newsz)`. 新建的每一个虚拟页都有权限位 `PTE_R \| PTE_U \| xperm`, 其中 `xperm` 由参数指定.|
 |`uvmdealloc()` | `vm.c[251:267]` | 回收一些物理页, 使用户进程占用的虚拟地址范围由 `[0, oldsz)` 缩小到 `[0, newsz)`.|
-|`uvmcopy()` | `vm.c[299:333]` | 将旧进程的页表 `old` 原样复制到新进程的页表 `new`. 页表 `new` 中的第 `i` 个虚拟页对应的物理页, 是页表 `old` 中的第 `i` 个虚拟页所对应物理页的副本. 这个函数的语义与 Unix 系统中的 `fork()` 相同 (无 copy-on-write).|
+|`uvmcopy()` | `vm.c[299:333]` | 将旧进程的页表 `old` 原样复制到新进程的页表 `new`. 页表 `new` 中的第 `i` 个虚拟页对应的物理页, 是页表 `old` 中的第 `i` 个虚拟页所对应物理页的副本. 这个函数的语义与 Unix 系统中的 `fork()` 相似 (无 copy-on-write).|
 | `uvmclear()` |`vm.c[335:346]` | 将虚拟地址 `va` 所在的虚拟页设为用户不可访问 (`U=0`). |
 | `copyout()` | `vm.c[348:371]` | 将内核地址空间中 `[src, src + len)` 的范围拷贝到进程虚拟地址空间中 `dstva` 出发的内存区域. 要求虚拟地址范围 `[dstva, dstva + len)` 经过的每一个虚拟页都是有效的 (`V=1`)、用户可访问的 (`U=1`). |
-| `copyin()` | `vm.c[373:396]` | 将进程虚拟地址空间中 `[srcva, srcva + len)` 的范围拷贝到内核地址空间中 `src` 出发的区域. 要求虚拟地址范围 `[srcva, srcva + len)` 经过的每一个虚拟页都是有效的 (`V=1`)、用户可访问的 (`U=1`). |
+| `copyin()` | `vm.c[373:396]` | 将进程虚拟地址空间中 `[srcva, srcva + len)` 的范围拷贝到内核地址空间中 `dst` 出发的区域. 要求虚拟地址范围 `[srcva, srcva + len)` 经过的每一个虚拟页都是有效的 (`V=1`)、用户可访问的 (`U=1`). |
 | `copyinstr()` | `vm.c[398:439]`| 同 `copyin()`, 只不过在拷贝过程中一旦检测到零字节, 就停止拷贝. 这适用于拷贝字符串. |
 
 至此, 我们成功为 **xv6 内核** (上一章) 和 **用户进程** (本章) 完成了虚拟内存的配置.
