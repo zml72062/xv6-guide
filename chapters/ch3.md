@@ -1,6 +1,6 @@
 # 3. 处理时钟中断
 
-在上一章我们读完了 `start()` 函数的代码. 这个函数完成了 M 模式下一切必要的准备工作, 然后回到 S 模式. 不过, 我们仍然遗留了一部分的代码到这一章, 也就是函数 `timerinit()` 的代码.
+在[上一章](ch2.md)我们读完了 `start()` 函数的代码. 这个函数完成了 M 模式下一切必要的准备工作, 然后回到 S 模式. 不过, 我们仍然遗留了一部分的代码到这一章, 也就是函数 `timerinit()` 的代码.
 
 ## 初识设备驱动程序
 
@@ -45,7 +45,7 @@ timerinit()
 * 提供操纵设备的软件接口
 * 在底层处理设备中断
 
-时钟设备为上层提供的接口是很简单的: 对于每个 CPU 核心, 它提供 **一对寄存器 `mtime` 和 `mtimecmp`**. 在命令行参数 `-machine virt` 下, `qemu` 把控制时钟设备 (core local interruptor, CLINT) 的寄存器映射到了从物理地址 `0x2000000` 开始的一片内存区域 (见第 1 章的物理内存布局图). 为了方便访问这些寄存器, 在 `kernel/memlayout.h[28:31]` 中定义了下列宏:
+时钟设备为上层提供的接口是很简单的: 对于每个 CPU 核心, 它提供 **一对寄存器 `mtime` 和 `mtimecmp`**. 在命令行参数 `-machine virt` 下, `qemu` 把控制时钟设备 (core local interruptor, CLINT) 的寄存器映射到了从物理地址 `0x2000000` 开始的一片内存区域 (见[第 1 章](ch1.md)的物理内存布局图). 为了方便访问这些寄存器, 在 `kernel/memlayout.h[28:31]` 中定义了下列宏:
 ```c
 // core local interruptor (CLINT), which contains the timer.
 #define CLINT 0x2000000L
@@ -119,7 +119,7 @@ uint64 timer_scratch[NCPU][5];
 * 当 `mtvec` 的低 2 位为 `00` 时, 代表着在 M 模式下, 无论发生什么中断, 硬件都跳转到地址 `mtvec` (它整体是一个 4 字节对齐的地址) 去执行.
 * 当 `mtvec` 的低 2 位为 `01` 时, 代表在 M 模式下发生中断时, 按下列方式跳转:
   + 如果是内中断, 跳转到 `mtvec - 1` (4 字节对齐) 执行.
-  + 如果是外中断, 且中断码为 `i` (见第 2 章的表格 "RISC-V 支持的中断" 中 exception code 一列), 就跳转到以 `mtvec - 1` (4 字节对齐) 为基址, 偏移量 `4 * i` 字节的地址去执行.
+  + 如果是外中断, 且中断码为 `i` (见[第 2 章](ch2.md)的表格 "RISC-V 支持的中断" 中 exception code 一列), 就跳转到以 `mtvec - 1` (4 字节对齐) 为基址, 偏移量 `4 * i` 字节的地址去执行.
 
 `timervec()` 函数的代码如下所示: (`kernel/kernelvec.S[93:124]`)
 ```asm
@@ -170,7 +170,7 @@ timervec:
 ```
 这两条代码开启了 M 模式下的全局中断开关 (`mstatus` 中的 MIE), 以及时钟中断 (MTI) 对应的局部中断开关. 从现在开始, M 模式下就可以接收并响应 MTI 中断了.
 
-> 看起来, M 模式下还可以响应 SEI, STI 和 SSI 这三种中断. 因为回忆一下, 在上一章中, 调用 `timervec()` 之前有一条指令
+> 看起来, M 模式下还可以响应 SEI, STI 和 SSI 这三种中断. 因为回忆一下, 在[上一章](ch2.md)中, 调用 `timervec()` 之前有一条指令
 > ```c
 >   w_sie(r_sie() | SIE_SEIE | SIE_STIE | SIE_SSIE);
 > ```

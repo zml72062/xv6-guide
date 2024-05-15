@@ -126,7 +126,7 @@ __attribute__ ((aligned (16))) char stack0[4096 * NCPU];
 > `csrr` 和 `csrw` 都是 RISC-V 特权指令. 它们能够读/写 CSR (Control and Status Registers). 寄存器 `mhartid` 就是一个 CSR, 它存储了 "这是第几个 CPU 核心?" (从 0 开始编号). 指令 `csrr a1, mhartid` 将寄存器 `mhartid` 的值读到 `a1`. 
 >
 
-* 接下来一行代码调用了 `start()` 函数. 它定义在 `start.c` 中. (见 `kernel/start.c[19:55]`, 我们将在下一章介绍这个函数的内容.)
+* 接下来一行代码调用了 `start()` 函数. 它定义在 `start.c` 中. (见 `kernel/start.c[19:55]`, 我们将在[下一章](ch2.md)介绍这个函数的内容.)
 
 正常来讲, `start()` 函数不会返回, 因此程序永远不会进入 `spin` 标记的死循环中.
 

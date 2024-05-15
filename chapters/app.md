@@ -2,6 +2,7 @@
 
 ## 资源链接
 
+* **xv6-book:** [https://pdos.csail.mit.edu/6.828/2023/xv6/book-riscv-rev3.pdf](https://pdos.csail.mit.edu/6.828/2023/xv6/book-riscv-rev3.pdf)
 * **RISC-V 用户级 ISA 手册:** [https://riscv.org/wp-content/uploads/2017/05/riscv-spec-v2.2.pdf](https://riscv.org/wp-content/uploads/2017/05/riscv-spec-v2.2.pdf)
 * **RISC-V 特权级 ISA 手册:** [https://riscv.org/wp-content/uploads/2017/05/riscv-privileged-v1.10.pdf](https://riscv.org/wp-content/uploads/2017/05/riscv-privileged-v1.10.pdf)
 * **RISC-V PLIC 手册:** [https://github.com/riscv/riscv-plic-spec](https://github.com/riscv/riscv-plic-spec)

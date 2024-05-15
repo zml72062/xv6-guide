@@ -1,6 +1,6 @@
 # 2. 初始化
 
-在上一章结尾, 我们提到: xv6 内核在执行完 `kernel/entry.S` 中最初的几行代码后, 就跳转到 `kernel/start.c` 中定义的 `start()` 函数执行. 这一章我们就来阅读 `start()` 函数的代码. 这部分代码如下面所示: (`kernel/start.c[19:55]`)
+在[上一章](ch1.md)结尾, 我们提到: xv6 内核在执行完 `kernel/entry.S` 中最初的几行代码后, 就跳转到 `kernel/start.c` 中定义的 `start()` 函数执行. 这一章我们就来阅读 `start()` 函数的代码. 这部分代码如下面所示: (`kernel/start.c[19:55]`)
 
 ```c
 // entry.S jumps here in machine mode on stack0.
@@ -234,7 +234,7 @@ RISC-V 提供了 `mideleg` 和 `medeleg` 寄存器, 分别代表 interrupt deleg
   // ask for clock interrupts.
   timerinit();
 ```
-`timerinit()` 函数完成了 **时钟中断处理** 的初始化. 执行完这个函数之后, 我们就能够正确应付时钟中断. 这是我们首次接触 **中断处理** 的代码. 我们将在下一章阅读 `timerinit()` 函数的细节.
+`timerinit()` 函数完成了 **时钟中断处理** 的初始化. 执行完这个函数之后, 我们就能够正确应付时钟中断. 这是我们首次接触 **中断处理** 的代码. 我们将在[下一章](ch3.md)阅读 `timerinit()` 函数的细节.
 
 > 为什么要把时钟中断处理放在最开始就完成呢? 这是因为时钟中断是 xv6 系统中唯一的 **必须陷入 M 模式才能处理** 的中断. 因此, 对时钟中断处理的初始化必须在特权级为 M 模式时完成, 也就是现在.
 

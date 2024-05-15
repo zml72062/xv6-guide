@@ -108,7 +108,7 @@ void kfree(void *pa)
 >   PROVIDE(end = .);
 > }
 > ```
-> 如果读者在第 1 章中 (例如, 通过网站 [https://mcyoung.xyz/2021/06/01/linker-script/](https://mcyoung.xyz/2021/06/01/linker-script/)) 学习过 linker script, 会了解到:
+> 如果读者在[第 1 章](ch1.md)中 (例如, 通过网站 [https://mcyoung.xyz/2021/06/01/linker-script/](https://mcyoung.xyz/2021/06/01/linker-script/)) 学习过 linker script, 会了解到:
 > * `SECTIONS { ... }` 指令指定了链接器的输出文件中含有哪些 sections
 > * 在 `SECTIONS { ... }` 指令块中, 
 >   + `.` 是一个随着链接过程不断增长的指针. 在链接过程中, 链接器总是把 `.` 作为接下来生成的内容的起始地址. 所以, 上面 linker script 中的语句 `. = 0x80000000;` 表示: 把 `0x80000000` 作为 xv6 内核 `.text` 段的起始地址.
